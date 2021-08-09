@@ -5,6 +5,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define limite 3
+
 struct Inodo{
     char tipos;
     char permisos[6];
@@ -54,6 +56,10 @@ int cat();
 int pwd();
 int my_rm();
 int my_rmdir();
+
+void insertar(char datos[limite], int tiempo[limite], int numero);
+int quantum(int tiempo[limite],int numero);
+void RoundRobin(char datos[limite], int tiempo[limite], int numero);
 
 int main(){
     int opc = 0;    
@@ -466,4 +472,51 @@ int my_rmdir(){
     y = (DirActual[0].inodo%16) -1;
     memcpy(datos[listaInodos[x][y].tablaContenido[0]-9], DirActual, 1024);
     return 1;
+}
+
+//-------------Round robin-------------------
+void insertar(char datos[limite], int tiempo[limite], int numero){
+     int i;
+     char temp[10];
+     for(i = 0; i < (numero); i++){
+         printf("inserte el tiempo en el proceso [%c]: ", datos[i]);
+         gets(temp);
+         tiempo[i] = atoi(temp);
+     }
+}
+
+int quantum(int tiempo[limite],int numero){
+    int resultado = 0, i;
+    for(i = 0; i < numero;++i)
+      resultado += tiempo[i];
+    resultado /= numero;
+    return 1;
+}
+
+void RoundRobin(char datos[limite], int tiempo[limite], int numero){
+    insertar(datos,tiempo, numero);
+    int Quantum = quantum(tiempo,numero);
+    printf("El quantum es: %d\n",Quantum);
+    int tiempoFinal = 0;
+    float sumatoria = 0.0f;
+    int metalera = 0;
+    int i = 0;
+    do{ 
+      tiempo[i] != 0 ? tiempo[i] -= Quantum : ++i;
+      if(tiempo[i] > 0){
+          tiempoFinal += Quantum;
+          printf("Trabajando en [%c]\n", datos[i]);
+      }else{
+          tiempoFinal += Quantum+tiempo[i];
+          sumatoria += tiempoFinal;
+          printf("el tiempo de proceso de %c: %d\n", datos[i], tiempoFinal);
+          metalera++;
+      }
+      if (i < (numero - 1))
+        i++;
+        else
+        i = 0;
+    }while(metalera < numero);
+    sumatoria /= numero;
+    printf("Tiempo promedio de los procesos es: %f\n", sumatoria);
 }
