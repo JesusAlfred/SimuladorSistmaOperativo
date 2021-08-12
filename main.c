@@ -270,7 +270,7 @@ int touch(){
 int mkdir(){
     char nombre[12], contenido[1008];
     int x, y, i;
-    struct Directorio DirT[64];
+    static struct Directorio DirT[64];
     printf("Nombre: ");
     gets(nombre);
     DirT[0].inodo = LIL[indiceLIL];
@@ -280,6 +280,7 @@ int mkdir(){
 
     x = LIL[indiceLIL]/16;
     y = (LIL[indiceLIL]%16) -1;
+    y = div(LIL[indiceLIL],16).rem-1;
     listaInodos[x][y].tipos = 'd';
     strcpy(listaInodos[x][y].permisos, "rwxrwx");
     listaInodos[x][y].enlaces = 1;

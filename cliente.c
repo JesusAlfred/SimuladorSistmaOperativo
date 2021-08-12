@@ -128,12 +128,13 @@ int main(){
         if (ins.code != 0){
             write(sockfd, &ins, sizeof(ins));
         }
-        // read(sockfd, buff_r, sizeof(buff_r));
-        // i=0;
-        // while(buff_r[0] != '+'){
-        //     printf("%c", buff_r[i]);
-        //     i++;
-        // }
+        read(sockfd, buff_r, sizeof(buff_r));
+        i=0;
+        while(buff_r[i] != '+'){
+            printf("%c", buff_r[i]);
+            i++;
+        }
+        printf("\n");
     }
     /* close the socket */
     close(sockfd); 

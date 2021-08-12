@@ -66,16 +66,16 @@ void start();
 void format();
 int menu();
 
-int touch();
-int mkdir();
-int ls();
-int ls_l();
+int touch(char nombre[12], char contenido[1008]);
+int mkdir(char nombre[12]);
+int ls(char *);
+int ls_l(char *);
 int my_exit();
-int cd();
-int cat();
-int pwd();
-int my_rm();
-int my_rmdir();
+int cd(char nombre[12]);
+int cat(char nombre[12], char*);
+int pwd(char *);
+int my_rm(char nombre[12]);
+int my_rmdir(char nombre[12]);
 
 void insertar(char datos[limite], int tiempo[limite], int numero);
 int quantum(int tiempo[limite],int numero);
@@ -86,7 +86,7 @@ void RoundRobin(char datos[limite], int tiempo[limite], int numero);
 int main(){
     int opc = 0;    
     int i, j, x, y, k;
-    char stringhelper[100];
+    char stringhelper[256];
     //sockets
     int sockfd, connfd ;  /* listening socket and connection socket file descriptors */
     unsigned int len;     /* length of client address */
@@ -197,12 +197,14 @@ int main(){
         {              
             while(1) /* read data from a client socket till it is closed */ 
             {  
+                strcpy(buff_s, "");
                 for(i=0; i<=contadorRuta; i++){
                     sprintf(stringhelper, "%s\\", ruta[i]);
                     strcat(buff_s, stringhelper);
                 }
                 strcat(buff_s, "+");
                 write(connfd, buff_s, strlen(buff_s));
+                strcpy(buff_s, "");
                 /* read client message, copy it into buffer */
                 len_r = read(connfd, &buff_r, sizeof(buff_r));  
                 
@@ -233,17 +235,17 @@ int main(){
                         break;
                         case 2: mkdir(buff_r.nombre);
                         break;
-                        case 3: ls();
+                        case 3: ls(buff_s);
                         break;
-                        case 4: ls_l();
+                        case 4: ls_l(buff_s);
                         break;
                         case 5: my_exit();
                         break;
                         case 6: cd(buff_r.nombre);
                         break;
-                        case 7: cat(buff_r.nombre);
+                        case 7: cat(buff_r.nombre, buff_s);
                         break;
-                        case 8: pwd();
+                        case 8: pwd(buff_s);
                         break;
                         case 9: my_rm(buff_r.nombre);
                         break;
@@ -252,6 +254,7 @@ int main(){
                         default:
                         break;
                     }
+                    write(connfd, buff_s, strlen(buff_s));
                 }            
             }  
         }                      
@@ -374,7 +377,7 @@ int touch(char nombre[12], char contenido[1008]){
 
 int mkdir(char nombre[12]){
     int x, y, i;
-    struct Directorio DirT[64];
+    static struct Directorio DirT[64];
     DirT[0].inodo = LIL[indiceLIL];
     DirT[1].inodo = DirActual[0].inodo;
     strcpy(DirT[0].nombre,".");
@@ -403,23 +406,33 @@ int mkdir(char nombre[12]){
         }
     }
     x = DirActual[0].inodo/16;
-    y = div(DirActual[0].inodo%16) -1;
+    y = (DirActual[0].inodo%16) -1;
     memcpy(datos[listaInodos[x][y].tablaContenido[0]-9], DirActual, 1024);
     return 1;
 }
-int ls(){
+int ls(char *ret){
     int i;
+    char stringhelper[256];
+    strcpy(ret, "");
     for(i=0; i<64; i++){
         if(DirActual[i].inodo){
-            printf("%d\t%s\n",DirActual[i].inodo, DirActual[i].nombre);
+            sprintf(stringhelper, "%d\t%s\n",DirActual[i].inodo, DirActual[i].nombre);
+            strcat(ret, stringhelper);
         }
     }
-    printf("\n");
+    strcat(ret, "+");
+    i=0;
+    while(ret[i] != '+'){
+        printf("%c", ret[i]);
+        i++;
+        //printf("%d", i);
+    }
     return 1;
 }
-int ls_l(){
+int ls_l(char *ret){
     int i, j, x, y;
     char permisosT[7] = "------";
+    char stringhelper[256];
     for(i = 0; i<64; i++){
         if (DirActual[i].inodo){
             x = DirActual[i].inodo/16;
@@ -429,10 +442,11 @@ int ls_l(){
                 permisosT[j] = listaInodos[x][y].permisos[j];
             }
             permisosT[6] = '\0';
-            printf("%d\t%s\t%c\t%s\t%d\t%s\t%dbytes\t%d-%d-%d\n",DirActual[i].inodo, DirActual[i].nombre, listaInodos[x][y].tipos, permisosT, listaInodos[x][y].enlaces, listaInodos[x][y].usuario, listaInodos[x][y].bytes, listaInodos[x][y].dia, listaInodos[x][y].mes, listaInodos[x][y].anio);
+            sprintf(stringhelper,"%d\t%s\t%c\t%s\t%d\t%s\t%dbytes\t%d-%d-%d\n",DirActual[i].inodo, DirActual[i].nombre, listaInodos[x][y].tipos, permisosT, listaInodos[x][y].enlaces, listaInodos[x][y].usuario, listaInodos[x][y].bytes, listaInodos[x][y].dia, listaInodos[x][y].mes, listaInodos[x][y].anio);
+            strcat(ret, stringhelper);
         }
     }
-    printf("\n");
+    strcat(ret, "+");
     return 1;
 }
 int my_exit(){
@@ -457,7 +471,7 @@ int cd(char nombre[12]){
                         contadorRuta++;
                         strcpy(ruta[contadorRuta], nombre);
                     }
-                        
+                    
                 }
                 break;
             }
@@ -469,7 +483,7 @@ int cd(char nombre[12]){
     }
     return 1;
 }
-int cat(char nombre[12]){
+int cat(char nombre[12], char *ret){
     int i, x, y;
     for(i=0; i<64; i++){
         if(!strcmp(DirActual[i].nombre, nombre) && DirActual[i].inodo){
@@ -488,7 +502,7 @@ int cat(char nombre[12]){
     }
     return 1;
 }
-int pwd(){
+int pwd(char * ret){
     int i;
     for(i=0; i<=contadorRuta; i++){
         printf("%s\\", ruta[i]);
