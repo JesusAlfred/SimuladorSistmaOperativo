@@ -4,6 +4,20 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
+
+/* sockets */
+#include <netdb.h> 
+#include <netinet/in.h> 
+#include <sys/socket.h> 
+#include <sys/types.h> 
+#include <arpa/inet.h>
+/* server parameters */
+#define SERV_PORT       8080              /* port */
+//#define SERV_HOST_ADDR "192.168.0.21"     /* IP, only IPV4 support  */
+#define SERV_HOST_ADDR "127.0.0.1"
+#define BUF_SIZE        100               /* Buffer rx, tx max size  */
+#define BACKLOG         5                 /* Max. client pending connections  */
 
 #define limite 3
 
@@ -24,6 +38,12 @@ struct Inodo{
 struct Directorio{
     int inodo;
     char nombre[12];
+};
+
+struct instruction {
+    int code;
+    char nombre[12];
+    char contenido[1008];
 };
 
 //Declaracion de variables globales
@@ -61,9 +81,22 @@ void insertar(char datos[limite], int tiempo[limite], int numero);
 int quantum(int tiempo[limite],int numero);
 void RoundRobin(char datos[limite], int tiempo[limite], int numero);
 
+
+
 int main(){
     int opc = 0;    
     int i, j, x, y, k;
+    char stringhelper[100];
+    //sockets
+    int sockfd, connfd ;  /* listening socket and connection socket file descriptors */
+    unsigned int len;     /* length of client address */
+    struct sockaddr_in servaddr, client;
+
+    int  len_r, len_tx = 0;                     /* received and sent length, in bytes */
+    char buff_s[2000];
+    struct instruction buff_r;   /* buffers for reception  */
+
+    //Inicializacion del sistema de archivos
     for(i=0; i<1024; i++){
         bootblock[i] = 'b';
     }
@@ -111,40 +144,117 @@ int main(){
     time_t tiempo = time(0);
     struct tm *tlocal;
     //format(bootblock, superbloque, listaInodos);
-    while (opc!=5){
-        for(i=0; i<=contadorRuta; i++){
-                printf("%s\\", ruta[i]);
-        }
-        opc = menu();
-        tlocal = localtime(&tiempo);
-        strftime(dia,3,"%d",tlocal);
-        strftime(mes,3,"%m",tlocal);
-        strftime(anio,3,"%y",tlocal);
 
-        switch (opc){
-            case 1: touch();
-            break;
-            case 2: mkdir();
-            break;
-            case 3: ls();
-            break;
-            case 4: ls_l();
-            break;
-            case 5: my_exit();
-            break;
-            case 6: cd();
-            break;
-            case 7: cat();
-            break;
-            case 8: pwd();
-            break;
-            case 9: my_rm();
-            break;
-            case 10: my_rmdir();
-            break;
-            default:
-            break;
-        }
+
+    /* socket creation */
+    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
+    if( sockfd == -1){
+        printf("Error");
+        return -1;
+    }else{
+        printf("Socket creado");
+    }
+    /* clear structure */
+    memset(&servaddr, 0, sizeof(servaddr));
+    /* assign IP, SERV_PORT, IPV4 */
+    servaddr.sin_family      = AF_INET; 
+    servaddr.sin_addr.s_addr = inet_addr(SERV_HOST_ADDR); 
+    servaddr.sin_port        = htons(SERV_PORT); 
+
+    /* Bind socket */
+    if ((bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0) 
+    { 
+        fprintf(stderr, "[SERVER-error]: socket bind failed. %d: %s \n", errno, strerror( errno ));
+        return -1;
+    } 
+    else
+    {
+        printf("[SERVER]: Socket successfully binded \n");
+    }
+
+    /* Listen */
+    if ((listen(sockfd, BACKLOG)) != 0) 
+    { 
+        fprintf(stderr, "[SERVER-error]: socket listen failed. %d: %s \n", errno, strerror( errno ));
+        return -1;
+    } 
+    else
+    {
+        printf("[SERVER]: Listening on SERV_PORT %d \n\n", ntohs(servaddr.sin_port) ); 
+    }
+    len = sizeof(client); 
+
+    /* Accept the data from incoming sockets in a iterative way */
+      while(1)
+      {
+        connfd = accept(sockfd, (struct sockaddr *)&client, &len); 
+        if (connfd < 0) 
+        { 
+            fprintf(stderr, "[SERVER-error]: connection not accepted. %d: %s \n", errno, strerror( errno ));
+            return -1;
+        } 
+        else
+        {              
+            while(1) /* read data from a client socket till it is closed */ 
+            {  
+                for(i=0; i<=contadorRuta; i++){
+                    sprintf(stringhelper, "%s\\", ruta[i]);
+                    strcat(buff_s, stringhelper);
+                }
+                strcat(buff_s, "+");
+                write(connfd, buff_s, strlen(buff_s));
+                /* read client message, copy it into buffer */
+                len_r = read(connfd, &buff_r, sizeof(buff_r));  
+                
+                if(len_r == -1)
+                {
+                    fprintf(stderr, "[SERVER-error]: connfd cannot be read. %d: %s \n", errno, strerror( errno ));
+                }
+                else if(len_r == 0) /* if length is 0 client socket closed, then exit */
+                {
+                    printf("[SERVER]: client socket closed \n\n");
+                    close(connfd);
+                    break; 
+                }
+                else
+                {
+                    printf("[SERVER] instruction code: %d \n", buff_r.code);
+                    printf("[SERVER] data.name: %s \n", buff_r.nombre);
+                    printf("[SERVER] data.contenido: %s \n", buff_r.contenido);
+                    //here goes the code
+                    
+                    tlocal = localtime(&tiempo);
+                    strftime(dia,3,"%d",tlocal);
+                    strftime(mes,3,"%m",tlocal);
+                    strftime(anio,3,"%y",tlocal);
+
+                    switch (buff_r.code){
+                        case 1: touch(buff_r.nombre, buff_r.contenido);
+                        break;
+                        case 2: mkdir(buff_r.nombre);
+                        break;
+                        case 3: ls();
+                        break;
+                        case 4: ls_l();
+                        break;
+                        case 5: my_exit();
+                        break;
+                        case 6: cd(buff_r.nombre);
+                        break;
+                        case 7: cat(buff_r.nombre);
+                        break;
+                        case 8: pwd();
+                        break;
+                        case 9: my_rm(buff_r.nombre);
+                        break;
+                        case 10: my_rmdir(buff_r.nombre);
+                        break;
+                        default:
+                        break;
+                    }
+                }            
+            }  
+        }                      
     }
     return 0;
 }
@@ -231,13 +341,8 @@ int menu(void){
     }
 }
 
-int touch(){
-    char nombre[12], contenido[1008];
+int touch(char nombre[12], char contenido[1008]){
     int x, y, i;
-    printf("Nombre: ");
-    gets(nombre);
-    printf("Contenido: ");
-    gets(contenido);
     x = LIL[indiceLIL]/16;
     //y = div(LIL[indiceLIL],16).rem-1;
     y = (LIL[indiceLIL]%16) -1;
@@ -267,12 +372,9 @@ int touch(){
     return 1;
 }
 
-int mkdir(){
-    char nombre[12], contenido[1008];
+int mkdir(char nombre[12]){
     int x, y, i;
     struct Directorio DirT[64];
-    printf("Nombre: ");
-    gets(nombre);
     DirT[0].inodo = LIL[indiceLIL];
     DirT[1].inodo = DirActual[0].inodo;
     strcpy(DirT[0].nombre,".");
@@ -301,7 +403,7 @@ int mkdir(){
         }
     }
     x = DirActual[0].inodo/16;
-    y = div(DirActual[0].inodo,16).rem -1;
+    y = div(DirActual[0].inodo%16) -1;
     memcpy(datos[listaInodos[x][y].tablaContenido[0]-9], DirActual, 1024);
     return 1;
 }
@@ -339,11 +441,8 @@ int my_exit(){
     //instricciones para guardar datos
     return 1;
 }
-int cd(){
-    char nombre[12];
+int cd(char nombre[12]){
     int i, x, y;
-    printf("dir: >");
-    gets(nombre);
     for(i=0; i<64; i++){
         if(!strcmp(DirActual[i].nombre, nombre) && DirActual[i].inodo){
             x = DirActual[i].inodo/16;
@@ -365,16 +464,13 @@ int cd(){
         }
     }
     if(i==64){
-        printf("El sistema no puede encontrar la ruta especificada\n");
+        printf("El sistema no puede encontrar la ruta especificada %s.\n", nombre);
         return 0;
     }
     return 1;
 }
-int cat(){
-    char nombre[12];
+int cat(char nombre[12]){
     int i, x, y;
-    printf("archivo: >");
-    gets(nombre);
     for(i=0; i<64; i++){
         if(!strcmp(DirActual[i].nombre, nombre) && DirActual[i].inodo){
             x = DirActual[i].inodo/16;
@@ -400,11 +496,8 @@ int pwd(){
     printf("\n");
     return 1;
 }
-int my_rm(){
-    char nombre[12];
+int my_rm(char nombre[12]){
     int i, x, y;
-    printf("archivo: >");
-    gets(nombre);
     for(i=0; i<64; i++){
         if(!strcmp(DirActual[i].nombre, nombre) && DirActual[i].inodo){
             x = DirActual[i].inodo/16;
@@ -432,12 +525,9 @@ int my_rm(){
     memcpy(datos[listaInodos[x][y].tablaContenido[0]-9], DirActual, 1024);
     return 1;
 }
-int my_rmdir(){
-    char nombre[12];
+int my_rmdir(char nombre[12]){
     int i, x, y, j;
     struct Directorio DirVali[64];
-    printf("dir: >");
-    gets(nombre);
     for(i=0; i<64; i++){
         if(!strcmp(DirActual[i].nombre, nombre) && DirActual[i].inodo){
             x = DirActual[i].inodo/16;
