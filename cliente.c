@@ -25,7 +25,7 @@ int main(){
     int i;
     //Variables para comunicación
     char buff_r[2000];
-
+    char ban;
     int sockfd; 
     struct sockaddr_in servaddr; 
     
@@ -66,13 +66,17 @@ int main(){
     while(ins.code != 5){
         strcpy(ins.nombre, "");
         strcpy(ins.contenido, "");
-        if (ins.code != 0)
-            read(sockfd, buff_r, sizeof(buff_r));
-        i=0;
-        while(buff_r[i] != '+'){
-            printf("%c", buff_r[i]);
-            i++;
+        if (ins.code != 0){
+            memset(buff_r, 0, sizeof(buff_r));
+            //read(sockfd, buff_r, sizeof(buff_r));
+            recv(sockfd, buff_r,sizeof(buff_r),0 );
         }
+        // i=0;
+        // while(buff_r[i] != '+'){
+        //     printf("%c", buff_r[i]);
+        //     i++;
+        // }
+        printf("%s", buff_r);
         printf("> ");
         gets(opc);
         if(!strcmp(opc, "touch")){          // Crea un archivo
@@ -126,15 +130,23 @@ int main(){
         }
         // Enviar instruccion al servidor
         if (ins.code != 0){
-            write(sockfd, &ins, sizeof(ins));
+            //write(sockfd, &ins, sizeof(ins));
+            
+            if( send(sockfd, &ins, sizeof(ins), 0) < 0 ){
+                printf("error");
+            }
         }
-        read(sockfd, buff_r, sizeof(buff_r));
-        i=0;
-        while(buff_r[i] != '+'){
-            printf("%c", buff_r[i]);
-            i++;
+        if (ins.code == 3 || ins.code == 4 || ins.code == 6 || ins.code == 7 || ins.code == 8 || ins.code == 9 || ins.code == 10){
+            //strcpy(buff_r, "");
+            memset(buff_r, 0, sizeof(buff_r));
+            recv(sockfd, buff_r, sizeof(buff_r),0);
+            // i=0;
+            // while(buff_r[i] != '+'){
+            //     printf("%c", buff_r[i]);
+            //     i++;
+            // }
+            printf("%s", buff_r);
         }
-        printf("\n");
     }
     /* close the socket */
     close(sockfd); 

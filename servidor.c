@@ -71,11 +71,11 @@ int mkdir(char nombre[12]);
 int ls(char *);
 int ls_l(char *);
 int my_exit();
-int cd(char nombre[12]);
+int cd(char nombre[12], char*);
 int cat(char nombre[12], char*);
 int pwd(char *);
-int my_rm(char nombre[12]);
-int my_rmdir(char nombre[12]);
+int my_rm(char nombre[12], char*);
+int my_rmdir(char nombre[12], char*);
 
 void insertar(char datos[limite], int tiempo[limite], int numero);
 int quantum(int tiempo[limite],int numero);
@@ -197,14 +197,16 @@ int main(){
         {              
             while(1) /* read data from a client socket till it is closed */ 
             {  
-                strcpy(buff_s, "");
+                //strcpy(buff_s, "");
+                memset(buff_s, 0, sizeof(buff_s));
                 for(i=0; i<=contadorRuta; i++){
                     sprintf(stringhelper, "%s\\", ruta[i]);
                     strcat(buff_s, stringhelper);
                 }
-                strcat(buff_s, "+");
-                write(connfd, buff_s, strlen(buff_s));
-                strcpy(buff_s, "");
+                printf("%s\n", buff_s);
+                //write(connfd, buff_s, strlen(buff_s));
+                send(connfd, buff_s, sizeof(buff_s),0);
+                memset(buff_s, 0, sizeof(buff_s));
                 /* read client message, copy it into buffer */
                 len_r = read(connfd, &buff_r, sizeof(buff_r));  
                 
@@ -229,32 +231,38 @@ int main(){
                     strftime(dia,3,"%d",tlocal);
                     strftime(mes,3,"%m",tlocal);
                     strftime(anio,3,"%y",tlocal);
-
+                    memset(buff_s, 0, sizeof(buff_s));
                     switch (buff_r.code){
                         case 1: touch(buff_r.nombre, buff_r.contenido);
                         break;
                         case 2: mkdir(buff_r.nombre);
                         break;
                         case 3: ls(buff_s);
+                                write(connfd, buff_s, strlen(buff_s));
                         break;
                         case 4: ls_l(buff_s);
+                                write(connfd, buff_s, strlen(buff_s));
                         break;
                         case 5: my_exit();
                         break;
-                        case 6: cd(buff_r.nombre);
+                        case 6: cd(buff_r.nombre, buff_s);
+                                write(connfd, buff_s, strlen(buff_s));
                         break;
                         case 7: cat(buff_r.nombre, buff_s);
+                                write(connfd, buff_s, strlen(buff_s));
                         break;
                         case 8: pwd(buff_s);
+                                write(connfd, buff_s, strlen(buff_s));
                         break;
-                        case 9: my_rm(buff_r.nombre);
+                        case 9: my_rm(buff_r.nombre, buff_s);
+                                write(connfd, buff_s, strlen(buff_s));
                         break;
-                        case 10: my_rmdir(buff_r.nombre);
+                        case 10: my_rmdir(buff_r.nombre, buff_s);
+                                write(connfd, buff_s, strlen(buff_s));
                         break;
                         default:
                         break;
                     }
-                    write(connfd, buff_s, strlen(buff_s));
                 }            
             }  
         }                      
@@ -301,48 +309,6 @@ void format(){
     printf("datos escritos\n\n");
 }
 
-int menu(void){
-    char opc[10];
-    //printf("1.- Crear archivo\n2.- Crear directorio\n3.- Ver\n4.- Ver indos\n5.- Fin\nOpcion:");
-    printf("> ");
-    gets(opc);
-    
-    if(!strcmp(opc, "touch")){          // Crea un archivo
-        return 1;
-    }else if(!strcmp(opc, "mkdir")){    // Crea un directorio
-        return 2;
-    }else if(!strcmp(opc, "ls")){       // Muestra el contenido del directorio actual
-        return 3;
-    }else if (!strcmp(opc, "ls -l")){   // Muestra el contenido del directorio actual con más detalle
-        return 4;
-    }else if(!strcmp(opc, "exit")){     // Cierra el simulador
-        return 5;
-    }else if(!strcmp(opc, "cd")){       // Cambia de directorio
-        return 6;
-    }else if(!strcmp(opc, "cat")){      // Muestra el contenido de cd un archivo
-        return 7;
-    }else if(!strcmp(opc, "pwd")){      // Muestra la ruta completa del directorio actual
-        return 8;
-    }else if(!strcmp(opc, "rm")){       // Elimina un archivo
-        return 9;
-    }else if(!strcmp(opc, "rmdir")){    // Elimina un directorio vacío
-        return 10;
-    }else{
-        printf("no se reconoce el comado\n");
-        printf("ayuda:\n");
-        printf("--touch\t\tcrear archivo\n");
-        printf("--mkdir\t\tcrear un directorio\n");
-        printf("--ls\t\tmuestra el contenido del directorio actual\n");
-        printf("--ls -l\t\tmuestra el contenido con detalle\n");
-        printf("--exit\t\tsalir\n");
-        printf("--cd\t\tcambiar de directorio\n");
-        printf("--cat\t\tmuestra el contenido de un archivo\n");
-        printf("--pwd\t\tmuestra la ruta del directorio actual\n");
-        printf("--rm\t\teliminar un archivo\n");
-        printf("--rmdir\t\teliminar un directorio vacío\n\n");
-        return 0;
-    }
-}
 
 int touch(char nombre[12], char contenido[1008]){
     int x, y, i;
@@ -372,6 +338,7 @@ int touch(char nombre[12], char contenido[1008]){
     x = DirActual[0].inodo/16;
     y = div(DirActual[0].inodo,16).rem -1;
     memcpy(datos[listaInodos[x][y].tablaContenido[0]-9], DirActual, 1024);
+    printf("fin touch\n");
     return 1;
 }
 
@@ -413,20 +380,13 @@ int mkdir(char nombre[12]){
 int ls(char *ret){
     int i;
     char stringhelper[256];
-    strcpy(ret, "");
     for(i=0; i<64; i++){
         if(DirActual[i].inodo){
             sprintf(stringhelper, "%d\t%s\n",DirActual[i].inodo, DirActual[i].nombre);
             strcat(ret, stringhelper);
         }
     }
-    strcat(ret, "+");
-    i=0;
-    while(ret[i] != '+'){
-        printf("%c", ret[i]);
-        i++;
-        //printf("%d", i);
-    }
+    printf("fin ls\n");
     return 1;
 }
 int ls_l(char *ret){
@@ -446,7 +406,7 @@ int ls_l(char *ret){
             strcat(ret, stringhelper);
         }
     }
-    strcat(ret, "+");
+    printf("fin ls -l\n");
     return 1;
 }
 int my_exit(){
@@ -455,7 +415,7 @@ int my_exit(){
     //instricciones para guardar datos
     return 1;
 }
-int cd(char nombre[12]){
+int cd(char nombre[12], char *ret){
     int i, x, y;
     for(i=0; i<64; i++){
         if(!strcmp(DirActual[i].nombre, nombre) && DirActual[i].inodo){
@@ -478,9 +438,10 @@ int cd(char nombre[12]){
         }
     }
     if(i==64){
-        printf("El sistema no puede encontrar la ruta especificada %s.\n", nombre);
+        sprintf(ret, "El sistema no puede encontrar la ruta especificada %s.\n", nombre);
         return 0;
     }
+    sprintf(ret, "Dir: %s\n", nombre);
     return 1;
 }
 int cat(char nombre[12], char *ret){
@@ -490,27 +451,30 @@ int cat(char nombre[12], char *ret){
             x = DirActual[i].inodo/16;
             y = (DirActual[i].inodo%16) -1;
             if(listaInodos[x][y].tipos != 'd'){
-                printf("%s\n\n", datos[listaInodos[x][y].tablaContenido[0]-9]);
+                sprintf(ret,"%s\n\n", datos[listaInodos[x][y].tablaContenido[0]-9]);
             }else{
-                printf("no es un archivo\n");
+                sprintf(ret,"no es un archivo\n");
             }
             break;
         }
     }
     if(i == 64){
-        printf("No se encontro el archivo\n");
+        sprintf(ret,"No se encontro el archivo\n");
     }
+    printf("%s", ret);
     return 1;
 }
 int pwd(char * ret){
     int i;
+    char stringhelper[256];
     for(i=0; i<=contadorRuta; i++){
-        printf("%s\\", ruta[i]);
+        sprintf(stringhelper, "%s\\", ruta[i]);
+        strcat(ret, stringhelper);
     }
     printf("\n");
     return 1;
 }
-int my_rm(char nombre[12]){
+int my_rm(char nombre[12], char *ret){
     int i, x, y;
     for(i=0; i<64; i++){
         if(!strcmp(DirActual[i].nombre, nombre) && DirActual[i].inodo){
@@ -524,22 +488,23 @@ int my_rm(char nombre[12]){
                 LIL[indiceLIL] = DirActual[i].inodo;
                 DirActual[i].inodo = 0;
             }else{
-                printf("no es un archivo\n");
+                sprintf(ret, "no es un archivo\n");
                 return 0;
             }
             break;
         }
     }
     if(i == 64){
-        printf("No se encontro el archivo\n");
+        sprintf(ret,"No se encontro el archivo\n");
         return 0;
     }
     x = DirActual[0].inodo/16;
     y = (DirActual[0].inodo%16) -1;
+    sprintf(ret, "Se eliminó: %s\n", nombre);
     memcpy(datos[listaInodos[x][y].tablaContenido[0]-9], DirActual, 1024);
     return 1;
 }
-int my_rmdir(char nombre[12]){
+int my_rmdir(char nombre[12], char *ret){
     int i, x, y, j;
     struct Directorio DirVali[64];
     for(i=0; i<64; i++){
@@ -561,7 +526,7 @@ int my_rmdir(char nombre[12]){
                     LIL[indiceLIL] = DirActual[i].inodo;
                     DirActual[i].inodo = 0;
                 }else{
-                    printf("El directorio no está vacío\n");
+                   sprintf(ret,"El directorio no está vacío\n");
                     return 0;
                 }
                 break;
@@ -569,11 +534,12 @@ int my_rmdir(char nombre[12]){
         }
     }
     if(i==64){
-        printf("El sistema no puede encontrar la ruta especificada\n");
+        sprintf(ret, "El sistema no puede encontrar la ruta especificada\n");
         return 0;
     }
     x = DirActual[0].inodo/16;
     y = (DirActual[0].inodo%16) -1;
+    sprintf(ret, "Se eliminó: %s\n", nombre);
     memcpy(datos[listaInodos[x][y].tablaContenido[0]-9], DirActual, 1024);
     return 1;
 }
