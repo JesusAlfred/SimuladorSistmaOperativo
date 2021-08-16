@@ -19,7 +19,7 @@ struct instruction {
 };
 
 int main(){
-    char opc[10];
+    char opc[20];
     int op = -1;
     struct instruction ins;
     int i;
@@ -113,6 +113,8 @@ int main(){
             ins.code = 10;
             printf("nombre>");
             gets(ins.nombre);
+        }else if(!strcmp(opc, "round-robin")){
+            ins.code = 11;
         }else{
             printf("no se reconoce el comado\n");
             printf("ayuda:\n");
@@ -126,6 +128,7 @@ int main(){
             printf("--pwd\t\tmuestra la ruta del directorio actual\n");
             printf("--rm\t\teliminar un archivo\n");
             printf("--rmdir\t\teliminar un directorio vacío\n\n");
+            printf("--round-robin\t\tejecuta el algoritmo en el servidor\n\n");
             ins.code = 0;
         }
         // Enviar instruccion al servidor

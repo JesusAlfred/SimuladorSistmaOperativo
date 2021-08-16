@@ -19,7 +19,7 @@
 #define BUF_SIZE        100               /* Buffer rx, tx max size  */
 #define BACKLOG         5                 /* Max. client pending connections  */
 
-#define limite 3
+#define limite 10
 
 struct Inodo{
     char tipos;
@@ -77,16 +77,15 @@ int pwd(char *);
 int my_rm(char nombre[12], char*);
 int my_rmdir(char nombre[12], char*);
 
-void insertar(char datos[limite], int tiempo[limite], int numero);
-int quantum(int tiempo[limite],int numero);
-void RoundRobin(char datos[limite], int tiempo[limite], int numero);
-
-
+void RR(char *proceso, char *tiempo, unsigned char numero);
 
 int main(){
     int opc = 0;    
     int i, j, x, y, k;
     char stringhelper[256];
+    char codigosingresados[limite];
+    char tiempoprocesos[limite];
+    char contprocesos = 0;
     //sockets
     int sockfd, connfd ;  /* listening socket and connection socket file descriptors */
     unsigned int len;     /* length of client address */
@@ -225,13 +224,21 @@ int main(){
                     printf("[SERVER] instruction code: %d \n", buff_r.code);
                     printf("[SERVER] data.name: %s \n", buff_r.nombre);
                     printf("[SERVER] data.contenido: %s \n", buff_r.contenido);
-                    //here goes the code
                     
                     tlocal = localtime(&tiempo);
                     strftime(dia,3,"%d",tlocal);
                     strftime(mes,3,"%m",tlocal);
                     strftime(anio,3,"%y",tlocal);
                     memset(buff_s, 0, sizeof(buff_s));
+                    // Almacenar los códgos ingresados para hacer una simulacion de cómo se resolveria por round robin
+                    if(buff_r.code != 11){
+                        if(contprocesos < limite) {
+                            codigosingresados[contprocesos] = buff_r.code;
+                            contprocesos++;
+                        }else{
+                            printf("[SERVER] limite para almacenar procesos alcansado, los próximos procesos no formaran parate del algoritmo round-robin\nejecute el proceso round-robin para poder agregar más\n");
+                        }
+                    }
                     switch (buff_r.code){
                         case 1: touch(buff_r.nombre, buff_r.contenido);
                         break;
@@ -259,6 +266,9 @@ int main(){
                         break;
                         case 10: my_rmdir(buff_r.nombre, buff_s);
                                 write(connfd, buff_s, strlen(buff_s));
+                        break;
+                        case 11: RR(codigosingresados, tiempoprocesos, contprocesos);
+                                 contprocesos = 0;
                         break;
                         default:
                         break;
@@ -545,48 +555,81 @@ int my_rmdir(char nombre[12], char *ret){
 }
 
 //-------------Round robin-------------------
-void insertar(char datos[limite], int tiempo[limite], int numero){
-     int i;
-     char temp[10];
-     for(i = 0; i < (numero); i++){
-         printf("inserte el tiempo en el proceso [%c]: ", datos[i]);
-         gets(temp);
-         tiempo[i] = atoi(temp);
-     }
-}
+void RR(char *proceso, char *tiempo, unsigned char numero){
+    char quantum = 2;
+    char numprocesosact = numero;
+    char i = 0;
+    char tiempototal = 0;
+    char tiempoaux[5];
+    char pro[limite][20];
 
-int quantum(int tiempo[limite],int numero){
-    int resultado = 0, i;
-    for(i = 0; i < numero;++i)
-      resultado += tiempo[i];
-    resultado /= numero;
-    return 1;
-}
+    for(i=0; i< numero; i++){
+        switch(proceso[i]){
+            case 1:
+                strcpy(pro[i], "touch");
+                tiempo[i] = 2;
+            break;
+            case 2:
+                strcpy(pro[i], "mkdir");
+                tiempo[i] = 4;
+            break;
+            case 3:
+                strcpy(pro[i], "ls");
+                tiempo[i] = 1;
+            break;
+            case 4:
+                strcpy(pro[i], "ls -l");
+                tiempo[i] = 2;
+            break;
+            case 5:
+                strcpy(pro[i], "exit");
+                tiempo[i] = 1;
+            break;
+            case 6:
+                strcpy(pro[i], "cd");
+                tiempo[i] = 2;
+            break;
+            case 7:
+                strcpy(pro[i], "cat");
+                tiempo[i] = 6;
+            break;
+            case 8:
+                strcpy(pro[i], "pwd");
+                tiempo[i] = 2;
+            break;
+            case 9:
+                strcpy(pro[i], "rm");
+                tiempo[i] = 8;
+            break;
+            case 10:
+                strcpy(pro[i], "rmdir");
+                tiempo[i] = 8;
+            break;
+        }
+    }
 
-void RoundRobin(char datos[limite], int tiempo[limite], int numero){
-    insertar(datos,tiempo, numero);
-    int Quantum = quantum(tiempo,numero);
-    printf("El quantum es: %d\n",Quantum);
-    int tiempoFinal = 0;
-    float sumatoria = 0.0f;
-    int metalera = 0;
-    int i = 0;
-    do{ 
-      tiempo[i] != 0 ? tiempo[i] -= Quantum : ++i;
-      if(tiempo[i] > 0){
-          tiempoFinal += Quantum;
-          printf("Trabajando en [%c]\n", datos[i]);
-      }else{
-          tiempoFinal += Quantum+tiempo[i];
-          sumatoria += tiempoFinal;
-          printf("el tiempo de proceso de %c: %d\n", datos[i], tiempoFinal);
-          metalera++;
-      }
-      if (i < (numero - 1))
+    memcpy(tiempoaux, tiempo, numero);
+    i=0;
+    while(numprocesosact){
+        if(tiempoaux[i] > 0){
+            tiempoaux[i] -= quantum;
+            tiempototal += quantum;
+            if(tiempoaux[i] < 0){
+                tiempototal += tiempoaux[i];
+            }
+            if(tiempoaux[i] <= 0){
+                tiempoaux[i] = 0;
+                numprocesosact -= 1;
+                printf("tiempo final del proceso %s es: %d\n", pro[i], tiempototal);
+                printf("servicio del proceso %s es: %d\n", pro[i], tiempototal-i);
+                printf("tiempo de espera de %s es: %d\n", pro[i], (tiempototal-i)- tiempo[i]);
+                printf("Indice del servicio del proceso %s es: %f\n", pro[i], (float)tiempo[i]/(tiempototal-i));
+                printf("\n");
+            }
+        }
         i++;
-        else
-        i = 0;
-    }while(metalera < numero);
-    sumatoria /= numero;
-    printf("Tiempo promedio de los procesos es: %f\n", sumatoria);
+        if(i == numero){
+            i = 0;
+        }
+    }
 }
