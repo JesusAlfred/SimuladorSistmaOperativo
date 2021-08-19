@@ -19,7 +19,7 @@
 #define BUF_SIZE        100               /* Buffer rx, tx max size  */
 #define BACKLOG         5                 /* Max. client pending connections  */
 
-#define limite 10
+#define limite 30
 
 struct Inodo{
     char tipos;
@@ -571,11 +571,11 @@ void RR(char *proceso, char *tiempo, unsigned char numero){
             break;
             case 2:
                 strcpy(pro[i], "mkdir");
-                tiempo[i] = 4;
+                tiempo[i] = 2;
             break;
             case 3:
                 strcpy(pro[i], "ls");
-                tiempo[i] = 1;
+                tiempo[i] = 2;
             break;
             case 4:
                 strcpy(pro[i], "ls -l");
@@ -583,7 +583,7 @@ void RR(char *proceso, char *tiempo, unsigned char numero){
             break;
             case 5:
                 strcpy(pro[i], "exit");
-                tiempo[i] = 1;
+                tiempo[i] = 2;
             break;
             case 6:
                 strcpy(pro[i], "cd");
@@ -591,7 +591,7 @@ void RR(char *proceso, char *tiempo, unsigned char numero){
             break;
             case 7:
                 strcpy(pro[i], "cat");
-                tiempo[i] = 6;
+                tiempo[i] = 2;
             break;
             case 8:
                 strcpy(pro[i], "pwd");
@@ -599,11 +599,11 @@ void RR(char *proceso, char *tiempo, unsigned char numero){
             break;
             case 9:
                 strcpy(pro[i], "rm");
-                tiempo[i] = 8;
+                tiempo[i] = 2;
             break;
             case 10:
                 strcpy(pro[i], "rmdir");
-                tiempo[i] = 8;
+                tiempo[i] = 2;
             break;
         }
     }
